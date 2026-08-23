@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+.vscode/
+*.log
+node_modules/
+dex/crops/
+*.onnx
+.DS_Store
