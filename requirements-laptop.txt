@@ -1,3 +1,6 @@
 flask
 requests
 opencv-python
+python-dotenv
+google-genai
+markdown

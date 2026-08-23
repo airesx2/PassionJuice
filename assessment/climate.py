@@ -63,6 +63,16 @@ def get_site_climate_profile(zip_code):
         **climate,
     }
 
+def get_zip_from_latlon(lat, lon):
+    resp = requests.get("https://nominatim.openstreetmap.org/reverse",params={"format":"json","lat":lat,"lon":lon},
+                        headers={"User-Agent": "tree-dex-capstone"}, timeout=10)
+    resp.raise_for_status()
+    address = resp.json().get("address", {}) #nest all location details
+    zip_code = address.get("postcode") #specifically zip 
+    if not zip_code: 
+        raise RuntimeError(f"Couldn't find ZIP code for lat={lat}, lon={lon}")
+    return zip_code
+
 if __name__ == "__main__":
     import sys
     zip_code = sys.argv[1] if len(sys.argv) > 1 else "97201"

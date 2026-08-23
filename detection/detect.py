@@ -77,6 +77,6 @@ for i in keep_indices:
         crop_name = os.path.join(DEX_DIR, "crops", f"tree_{timestamp}_{saved}.jpg")
         cv2.imwrite(crop_name, crop)
         with open(LOG_FILE,"a",newline="") as f:
-            csv.writer(f).writerow([timestamp,"tree",f"{confidences[i]:.2f}",crop_name])
+            csv.writer(f).writerow([timestamp,"tree",f"{scores_for_nms[i]:.2f}",crop_name])
         saved += 1
 print(f"Caught {saved} trees")
