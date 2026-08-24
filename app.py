@@ -10,6 +10,7 @@ import os
 from datetime import datetime
 
 from assessment.climate import get_site_climate_profile, get_zip_from_latlon
+from assessment.flavor import get_tree_flavor
 from assessment.recommend import get_planting_recommendation
 from assessment.site_zones import get_zones, get_zone
 
@@ -28,6 +29,9 @@ NAV = """
     <a href="/">Tree Dex</a>
     <a href="/planting">Planting Recs</a>
     <a href="/map">Map</a>
+    <a href="/canopy-mapping">Canopy Mapping</a>
+    <a href="/health-monitoring">Health Monitoring</a>
+    <a href="/locust-risk">Locust Risk</a>
 </div>
 """
 
@@ -65,6 +69,30 @@ def load_catches():
                 catches.append(row)
     return catches
 
+def save_flavor(crop_file, nickname, flavor):
+    """Persist a generated nickname/flavor back into log.csv, matched by
+    crop filename, so it survives a page reload instead of disappearing."""
+    if not os.path.exists(LOG_FILE):
+        return
+    with open(LOG_FILE, newline="") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+        fieldnames = list(reader.fieldnames)
+
+    for row in rows:
+        if os.path.basename(row.get("crop_file", "")) == crop_file:
+            row["nickname"] = nickname
+            row["flavor"] = flavor
+
+    for col in ("nickname", "flavor"):
+        if col not in fieldnames:
+            fieldnames.append(col)
+
+    with open(LOG_FILE, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
 
 
 # Serve the cropped images
@@ -80,19 +108,30 @@ def index():
     cards = ""
     for c in catches:
         frame = os.path.basename(c.get("crop_file", ""))
+        nickname = c.get("nickname", "").strip()
+        flavor = c.get("flavor", "").strip()
+
+        if nickname:
+            label = nickname
+            reveal_html = f'<div class="flavor-text">{render_recommendation(flavor)}</div>' if flavor else ""
+        else:
+            label = c.get('species', 'tree').title()
+            reveal_html = '<button class="reveal-btn" onclick="revealFlavor(this)"> ⊹ ࣪ ˖Reveal</button><div class="flavor-text"></div>'
+
         cards += f"""
-        <div class = "card">
+        <div class = "card" data-crop="{frame}">
             <div class="img-wrap">
                 <img src = "/dex/crops/{frame}" alt = "tree" >
                 <span class="conf-pill">{c.get('confidence', '?')}%</span>
             </div>
             <div class="info">
-                <div class = "species">🌳 {c.get('species','tree').title() }</div>
+                <div class = "species">🌳 <span class="species-label">{label}</span></div>
                 <div class = "time"> {c.get("timestamp", "")}</div>
+                {reveal_html}
             </div>
         </div>
         """
-    html = f"""
+    page_html = f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -120,6 +159,7 @@ def index():
                 justify-content: center;
                 gap: 18px;
                 margin-bottom: 20px;
+                flex-wrap: wrap;
             }}
             .nav a {{
                 color: #e8f5e8;
@@ -189,6 +229,20 @@ def index():
                 font-size: 1.1em;
                 grid-column: 1 / -1;
             }}
+            .reveal-btn {{
+                margin-top: 8px;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 8px;
+                background: #4a7a68;
+                color: white;
+                font-size: 0.8em;
+                cursor: pointer;
+            }}
+            .reveal-btn:hover {{ background: #3d6a58; }}
+            .flavor-text {{ font-size: 0.85em; line-height: 1.5; margin-top: 8px; }}
+            .flavor-text p {{ margin: 0 0 8px; }}
+            .flavor-error {{ color: #ffb3b3; font-size: 0.85em; margin-top: 8px; }}
         </style>
     </head>
     <body>
@@ -198,10 +252,36 @@ def index():
         <div class="grid">
             {cards if cards else '<p class="empty">No catches yet. Run detect.py to start collecting!</p>'}
         </div>
+        <script>
+            function revealFlavor(btn) {{
+                const card = btn.closest('.card');
+                const cropFile = card.dataset.crop;
+                const flavorDiv = card.querySelector('.flavor-text');
+                btn.disabled = true;
+                btn.textContent = 'Loading...';
+
+                fetch(`/api/tree-flavor?crop=${{encodeURIComponent(cropFile)}}`)
+                    .then(res => res.json())
+                    .then(data => {{
+                        if (!data.success) {{
+                            flavorDiv.innerHTML = `<p class="flavor-error">${{data.error}}</p>`;
+                            btn.remove();
+                            return;
+                        }}
+                        card.querySelector('.species-label').textContent = data.nickname;
+                        flavorDiv.innerHTML = data.flavor;
+                        btn.remove();
+                    }})
+                    .catch(() => {{
+                        flavorDiv.innerHTML = '<p class="flavor-error">Something went wrong.</p>';
+                        btn.remove();
+                    }});
+            }}
+        </script>
     </body>
     </html>
     """
-    return html
+    return page_html
 
 @app.route("/planting")
 def planting():
@@ -244,7 +324,7 @@ def planting():
                 min-height: 100vh;
             }}
             h1 {{ text-align: center; font-size: 2em; margin-bottom: 20px; text-shadow: 0 2px 6px rgba(0,0,0,0.25); }}
-            .nav {{ display: flex; justify-content: center; gap: 18px; margin-bottom: 20px; }}
+            .nav {{ display: flex; justify-content: center; gap: 18px; margin-bottom: 20px; flex-wrap: wrap; }}
             .nav a {{ color: #e8f5e8; text-decoration: none; font-size: 0.95em; padding: 6px 14px; border-radius: 999px; background: rgba(0,0,0,0.15); }}
             .nav a:hover {{ background: rgba(0,0,0,0.3); }}
             form {{ text-align: center; margin-bottom: 30px; }}
@@ -304,7 +384,7 @@ def site_map():
                 min-height: 100vh;
             }}
             h1 {{ text-align: center; font-size: 2em; margin-bottom: 20px; text-shadow: 0 2px 6px rgba(0,0,0,0.25); }}
-            .nav {{ display: flex; justify-content: center; gap: 18px; margin-bottom: 20px; }}
+            .nav {{ display: flex; justify-content: center; gap: 18px; margin-bottom: 20px; flex-wrap: wrap; }}
             .nav a {{ color: #e8f5e8; text-decoration: none; font-size: 0.95em; padding: 6px 14px; border-radius: 999px; background: rgba(0,0,0,0.15); }}
             .nav a:hover {{ background: rgba(0,0,0,0.3); }}
             .map-layout {{ max-width: 1100px; margin: 0 auto; display: flex; gap: 20px; align-items: flex-start; }}
@@ -327,6 +407,21 @@ def site_map():
             .error {{ color: #ffb3b3; }}
             .legend {{ max-width: 1100px; margin: 14px auto 0; text-align: center; font-size: 0.85em; opacity: 0.85; }}
             .legend span {{ display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin: 0 4px 0 16px; vertical-align: middle; }}
+            .locust-toggle {{ max-width: 1100px; margin: 16px auto 0; text-align: center; font-size: 0.9em; }}
+            .locust-toggle label {{ cursor: pointer; }}
+            .locust-banner {{
+                display: none;
+                max-width: 1100px;
+                margin: 14px auto 0;
+                background: rgba(155, 89, 182, 0.2);
+                border: 1px solid rgba(155, 89, 182, 0.4);
+                border-radius: 12px;
+                padding: 16px 20px;
+                font-size: 0.9em;
+                line-height: 1.6;
+            }}
+            .locust-banner.visible {{ display: block; }}
+            .locust-banner a {{ color: #e8f5e8; }}
         </style>
     </head>
     <body>
@@ -342,6 +437,17 @@ def site_map():
             <span style="background:#e74c3c;"></span>sparse (priority planting)
             <span style="background:#f1c40f;"></span>moderate
             <span style="background:#2ecc71;"></span>well-vegetated
+        </div>
+        <div class="locust-toggle">
+            <label>
+                <input type="checkbox" id="locust-toggle-input">
+                &#128029; Show locust outbreak risk (exploratory)
+            </label>
+        </div>
+        <div class="locust-banner" id="locust-banner">
+            This feature isn't implemented yet &mdash; it would need real rainfall-anomaly, soil-moisture,
+            vegetation-greenness, and historical-observation data to work accurately, none of which the
+            app collects today. See the <a href="/locust-risk">Locust Risk</a> tab for details on what's needed.
         </div>
 
         <script>
@@ -392,6 +498,10 @@ def site_map():
                         }});
                 }});
             }});
+
+            document.getElementById('locust-toggle-input').addEventListener('change', (e) => {{
+                document.getElementById('locust-banner').classList.toggle('visible', e.target.checked);
+            }});
         </script>
     </body>
     </html>
@@ -421,6 +531,137 @@ def zone_recommendation():
         "avg_annual_precip_mm": profile["avg_annual_precip_mm"],
         "recommendation": render_recommendation(recommendation)
     })
+
+@app.route("/api/tree-flavor")
+def tree_flavor():
+    crop_file = os.path.basename(request.args.get("crop", ""))  # basename blocks path traversal (e.g. "../../secret")
+    if not crop_file:
+        return jsonify({"success": False, "error": "Missing crop filename"}), 400
+
+    crop_path = os.path.join(DEX_DIR, "crops", crop_file)
+    if not os.path.exists(crop_path):
+        return jsonify({"success": False, "error": "Crop image not found"}), 404
+
+    try:
+        result = get_tree_flavor(crop_path)
+    except RuntimeError as e:
+        return jsonify({"success": False, "error": str(e)})
+
+    save_flavor(crop_file, result["nickname"], result["flavor"])
+
+    return jsonify({
+        "success": True,
+        "nickname": result["nickname"],
+        "flavor": render_recommendation(result["flavor"]),
+    })
+
+def render_stub_page(title, emoji, badge, badge_color, desc, extra_html=""):
+    """Shared layout for 'under development' feature tabs -- one badge,
+    one description, optional extra content (e.g. the locust dataset list)."""
+    page_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Tree Dex &middot; {title}</title>
+        <style>
+            * {{ box-sizing: border-box; }}
+            body {{
+                font-family: 'Segoe UI', system-ui, sans-serif;
+                background: radial-gradient(circle at top, #a4bdb8, #7f9a94 70%);
+                color: #e8f5e8;
+                margin: 0;
+                padding: 40px 20px 60px;
+                min-height: 100vh;
+            }}
+            h1 {{ text-align: center; font-size: 2em; margin-bottom: 20px; text-shadow: 0 2px 6px rgba(0,0,0,0.25); }}
+            .nav {{ display: flex; justify-content: center; gap: 18px; margin-bottom: 20px; flex-wrap: wrap; }}
+            .nav a {{ color: #e8f5e8; text-decoration: none; font-size: 0.95em; padding: 6px 14px; border-radius: 999px; background: rgba(0,0,0,0.15); }}
+            .nav a:hover {{ background: rgba(0,0,0,0.3); }}
+            .stub-card {{
+                max-width: 640px;
+                margin: 0 auto;
+                background: rgba(0,0,0,0.15);
+                border-radius: 14px;
+                padding: 24px 28px;
+                border-left: 4px solid {badge_color};
+            }}
+            .badge {{
+                display: inline-block;
+                font-size: 0.8em;
+                font-weight: 600;
+                padding: 4px 12px;
+                border-radius: 999px;
+                background: rgba(0,0,0,0.2);
+                margin-bottom: 14px;
+            }}
+            .stub-card p {{ line-height: 1.6; opacity: 0.9; }}
+            .stub-card ul {{ line-height: 1.6; opacity: 0.9; padding-left: 20px; }}
+            .stub-card li {{ margin-bottom: 8px; }}
+        </style>
+    </head>
+    <body>
+        {NAV}
+        <h1>{emoji} {title}</h1>
+        <div class="stub-card">
+            <span class="badge">{badge}</span>
+            <p>{desc}</p>
+            {extra_html}
+        </div>
+    </body>
+    </html>
+    """
+    return page_html
+
+@app.route("/canopy-mapping")
+def canopy_mapping():
+    return render_stub_page(
+        title="Urban Canopy &amp; Heat-Gap Mapping",
+        emoji="&#127794;",
+        badge="&#128203; Planned",
+        badge_color="#f1c40f",
+        desc="Once catches are truly geotagged, cluster them into real zones "
+             "(instead of the hardcoded sample zones on the Map tab today) to "
+             "flag areas with unusually sparse tree cover -- these tend to run "
+             "hotter, which is an environmental-justice signal as much as an "
+             "ecological one.",
+    )
+
+@app.route("/health-monitoring")
+def health_monitoring():
+    return render_stub_page(
+        title="Tree Health Monitoring",
+        emoji="&#127807;",
+        badge="&#128203; Planned",
+        badge_color="#f1c40f",
+        desc="Track vigor/greenness of the same surveyed area across repeated "
+             "flights over time, to flag trees or zones that are declining before "
+             "it's obvious to the eye. Needs multiple flights over the same site "
+             "spaced out over time, so it's a slower feature to build out than "
+             "the others.",
+    )
+
+@app.route("/locust-risk")
+def locust_risk():
+    dataset_list = """
+    <p><strong>What this would actually need:</strong></p>
+    <ul>
+        <li><strong>Rainfall anomaly</strong> &mdash; recent rainfall vs. historical average in arid/semi-arid regions, since locusts breed after rain wets sandy soil. Different from the climate normals already used for planting recs, which are historical averages, not recent conditions.</li>
+        <li><strong>Soil type/moisture</strong> &mdash; desert locusts specifically need moist, sandy soil to lay eggs.</li>
+        <li><strong>Vegetation greenness (NDVI)</strong> &mdash; a satellite-derived index; a sudden green-up after dry conditions is a real precursor signal.</li>
+        <li><strong>Historical observation records</strong> &mdash; FAO's Locust Hub publishes real outbreak location data, which would likely be the single most useful dataset if it has a queryable API.</li>
+    </ul>
+    <p>Not visual bug-spotting &mdash; the drone's altitude and camera setup aren't suited for that. This is only meaningful for sites in outbreak-prone regions.</p>
+    """
+    return render_stub_page(
+        title="Pest / Outbreak Risk Flagging",
+        emoji="&#128029;",
+        badge="&#128269; Exploratory",
+        badge_color="#9b59b6",
+        desc="Flag areas at elevated pest-outbreak risk using the same "
+             "environmental precursor signals real agencies use. Effectively "
+             "an extension of Tree Health Monitoring once that exists.",
+        extra_html=dataset_list,
+    )
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
