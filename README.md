@@ -14,6 +14,7 @@ and Gemini.
 - Motors: T-Motor V2306
 - GPS: M8N
 - Companion computer: Raspberry Pi Zero 2W + Camera Module V2
+- Build Log [https://docs.google.com/presentation/d/1nEofchMasy27EcYtwU0i3Pb7w4pghgpwYOgNFogjeMs/edit?slide=id.gec9722e163_0_282#slide=id.gec9722e163_0_282]
 
 ## Architecture
 
