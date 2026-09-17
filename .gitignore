@@ -8,4 +8,5 @@ venv/
 node_modules/
 dex/crops/
 *.onnx
+flight-logs/
 .DS_Store
