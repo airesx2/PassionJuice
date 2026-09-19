@@ -109,7 +109,9 @@ and open `http://localhost:5000`.
 
 ## Data notes
 
-`dex/log.csv` in this repo is sample data from real test flights. The cropped
-images themselves (`dex/crops/`) and the trained model (`detection/*.onnx`) are
-gitignored since they're large binaries — regenerate them by running `detect.py`,
-or ask for a copy of the trained model directly.
+`dex/log.csv`, the cropped images (`dex/crops/`), and the trained model
+(`detection/*.onnx`) are all gitignored and not part of this repo. The crops
+and model are excluded for being large binaries; the log is excluded because
+it holds real, precise GPS coordinates once flights are logged, which
+shouldn't be public. Run `detect.py` to regenerate a local log and crops, or
+ask for a copy of the trained model directly.

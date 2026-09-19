@@ -37,6 +37,13 @@ NAV = """
 
 DEX_DIR = "dex"
 LOG_FILE = os.path.join(DEX_DIR, "log.csv")
+MIN_DISPLAY_CONFIDENCE = 0.3  # hide low-confidence false positives from the main view
+
+def confidence_of(c):
+    try:
+        return float(c.get("confidence") or 0)
+    except ValueError:
+        return 0
 
 
 def format_timestamp(raw):
@@ -80,7 +87,7 @@ def save_flavor(crop_file, nickname, flavor):
         fieldnames = list(reader.fieldnames)
 
     for row in rows:
-        if os.path.basename(row.get("crop_file", "")) == crop_file:
+        if os.path.basename(row.get("crop_file") or "") == crop_file:
             row["nickname"] = nickname
             row["flavor"] = flavor
 
@@ -102,14 +109,14 @@ def crops(filename):
 
 @app.route("/")
 def index():
-    catches = load_catches()
+    catches = [c for c in load_catches() if confidence_of(c) >= MIN_DISPLAY_CONFIDENCE]
     total = len(catches)
 
     cards = ""
     for c in catches:
         frame = os.path.basename(c.get("crop_file", ""))
-        nickname = c.get("nickname", "").strip()
-        flavor = c.get("flavor", "").strip()
+        nickname = (c.get("nickname") or "").strip()
+        flavor = (c.get("flavor") or "").strip()
 
         if nickname:
             label = nickname
@@ -122,12 +129,13 @@ def index():
         <div class = "card" data-crop="{frame}">
             <div class="img-wrap">
                 <img src = "/dex/crops/{frame}" alt = "tree" >
-                <span class="conf-pill">{c.get('confidence', '?')}%</span>
+                <span class="conf-pill">{round(confidence_of(c) * 100)}%</span>
             </div>
             <div class="info">
                 <div class = "species">🌳 <span class="species-label">{label}</span></div>
                 <div class = "time"> {c.get("timestamp", "")}</div>
                 {reveal_html}
+                <button class="delete-btn" onclick="deleteCatch(this)">&#128465; Delete</button>
             </div>
         </div>
         """
@@ -240,6 +248,18 @@ def index():
                 cursor: pointer;
             }}
             .reveal-btn:hover {{ background: #3d6a58; }}
+            .delete-btn {{
+                margin-top: 8px;
+                margin-left: 6px;
+                padding: 5px 10px;
+                border: none;
+                border-radius: 8px;
+                background: rgba(200, 60, 60, 0.75);
+                color: white;
+                font-size: 0.8em;
+                cursor: pointer;
+            }}
+            .delete-btn:hover {{ background: rgba(200, 60, 60, 0.95); }}
             .flavor-text {{ font-size: 0.85em; line-height: 1.5; margin-top: 8px; }}
             .flavor-text p {{ margin: 0 0 8px; }}
             .flavor-error {{ color: #ffb3b3; font-size: 0.85em; margin-top: 8px; }}
@@ -275,6 +295,33 @@ def index():
                     .catch(() => {{
                         flavorDiv.innerHTML = '<p class="flavor-error">Something went wrong.</p>';
                         btn.remove();
+                    }});
+            }}
+
+            function deleteCatch(btn) {{
+                const card = btn.closest('.card');
+                const cropFile = card.dataset.crop;
+                if (!confirm('Delete this tree? This removes it permanently, including its photo.')) {{
+                    return;
+                }}
+                btn.disabled = true;
+                btn.textContent = 'Deleting...';
+
+                fetch(`/api/delete-catch?crop=${{encodeURIComponent(cropFile)}}`, {{ method: 'POST' }})
+                    .then(res => res.json())
+                    .then(data => {{
+                        if (!data.success) {{
+                            alert(`Couldn't delete: ${{data.error}}`);
+                            btn.disabled = false;
+                            btn.textContent = '🗑 Delete';
+                            return;
+                        }}
+                        card.remove();
+                    }})
+                    .catch(() => {{
+                        alert('Something went wrong deleting this catch.');
+                        btn.disabled = false;
+                        btn.textContent = '🗑 Delete';
                     }});
             }}
         </script>
@@ -364,7 +411,13 @@ def planting():
 
 @app.route("/map")
 def site_map():
-    zones_json = json.dumps(get_zones())
+    zones, is_real = get_zones()
+    zones_json = json.dumps(zones)
+    data_notice = (
+        "Showing real GPS-matched catches."
+        if is_real else
+        "Showing sample zones &mdash; no flight has paired real GPS data with detections yet."
+    )
 
     page_html = f"""
     <!DOCTYPE html>
@@ -427,6 +480,7 @@ def site_map():
     <body>
         {NAV}
         <h1>📍 Scanned Zones</h1>
+        <p class="hint">{data_notice}</p>
         <div class="map-layout">
             <div id="map"></div>
             <div id="rec-panel" class="rec-panel">
@@ -554,6 +608,33 @@ def tree_flavor():
         "nickname": result["nickname"],
         "flavor": render_recommendation(result["flavor"]),
     })
+
+@app.route("/api/delete-catch", methods=["POST"])
+def delete_catch():
+    """POST-only (not GET) so a stray link click or crawler can't trigger
+    a deletion -- this is a destructive action, unlike the read-only routes."""
+    crop_file = os.path.basename(request.args.get("crop", ""))
+    if not crop_file:
+        return jsonify({"success": False, "error": "Missing crop filename"}), 400
+
+    if not os.path.exists(LOG_FILE):
+        return jsonify({"success": False, "error": "No catches to delete"}), 404
+
+    with open(LOG_FILE, newline="") as f:
+        reader = csv.DictReader(f)
+        fieldnames = list(reader.fieldnames)
+        rows = [r for r in reader if os.path.basename(r.get("crop_file") or "") != crop_file]
+
+    with open(LOG_FILE, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    crop_path = os.path.join(DEX_DIR, "crops", crop_file)
+    if os.path.exists(crop_path):
+        os.remove(crop_path)
+
+    return jsonify({"success": True})
 
 def render_stub_page(title, emoji, badge, badge_color, desc, extra_html=""):
     """Shared layout for 'under development' feature tabs -- one badge,

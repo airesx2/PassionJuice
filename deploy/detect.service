@@ -1,0 +1,13 @@
+[Unit]
+Description=Tree Dex detection survey
+
+[Service]
+Type=simple
+User=mrdrone
+WorkingDirectory=/home/mrdrone/PassionJuice
+ExecStart=/usr/bin/python3 /home/mrdrone/PassionJuice/detection/detect.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

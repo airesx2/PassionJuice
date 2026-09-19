@@ -7,6 +7,7 @@ venv/
 *.log
 node_modules/
 dex/crops/
+dex/log.csv
 *.onnx
 flight-logs/
 .DS_Store

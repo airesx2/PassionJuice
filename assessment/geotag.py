@@ -26,6 +26,9 @@ import csv
 from datetime import datetime, timedelta
 
 CATCH_TIME_FORMAT = "%Y%m%d_%H%M%S"
+MAX_MATCH_GAP_SECONDS = 60  # a catch and its "closest" GPS point still shouldn't
+                            # be from different flights -- refuse the match instead
+                            # of silently pairing unrelated data
 
 def load_gps_track(csv_path):
     """Parse a Blackbox CSV export into a list of (datetime, lat, lon)
@@ -76,21 +79,30 @@ def load_catches_raw(log_file):
 
 def find_closest_gps(catch_time, gps_track):
     """gps_track: list of (datetime, lat, lon) tuples.
-    Returns (lat, lon) of whichever point's timestamp is nearest to catch_time."""
+    Returns (lat, lon) of whichever point's timestamp is nearest to catch_time,
+    or None if even the closest point is more than MAX_MATCH_GAP_SECONDS away --
+    that means the catch and the GPS log are from different flights entirely,
+    and pairing them would just be a coincidence, not a real match."""
     closest = min(gps_track, key=lambda point: abs((point[0] - catch_time).total_seconds()))
+    gap = abs((closest[0] - catch_time).total_seconds())
+    if gap > MAX_MATCH_GAP_SECONDS:
+        return None
     return closest[1], closest[2]
 
 def enrich_catches(catches, gps_track):
     """Adds 'latitude' and 'longitude' to each catch dict, matched by
-    closest timestamp. Catches with an unparseable timestamp, or no GPS
-    track at all, get None for both."""
+    closest timestamp -- only when that closest point is actually close in
+    time (see find_closest_gps). Catches with an unparseable timestamp, no
+    GPS track at all, or no sufficiently-close GPS point get None for both."""
     enriched = []
     for catch in catches:
         lat = lon = None
         if gps_track:
             try:
                 catch_time = datetime.strptime(catch["timestamp"], CATCH_TIME_FORMAT)
-                lat, lon = find_closest_gps(catch_time, gps_track)
+                match = find_closest_gps(catch_time, gps_track)
+                if match:
+                    lat, lon = match
             except (ValueError, KeyError):
                 pass
         enriched.append({**catch, "latitude": lat, "longitude": lon})
