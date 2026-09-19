@@ -5,7 +5,7 @@ Description=Tree Dex detection survey
 Type=simple
 User=mrdrone
 WorkingDirectory=/home/mrdrone/PassionJuice
-ExecStart=/usr/bin/python3 /home/mrdrone/PassionJuice/detection/detect.py
+ExecStart=/usr/bin/python3 -u /home/mrdrone/PassionJuice/detection/detect.py
 Restart=on-failure
 RestartSec=5
 
