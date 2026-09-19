@@ -16,7 +16,7 @@ data and Gemini, plotted on a live map of where catches actually happened.
 - GPS: M8N (wired to the FC's UART4)
 - Companion computer: Raspberry Pi Zero 2W + Camera Module V2, powered by a UBEC
   off the main battery, connected to the FC's UART2 over MSP for live telemetry
-- Build Log [https://docs.google.com/presentation/d/1nEofchMasy27EcYtwU0i3Pb7w4pghgpwYOgNFogjeMs/edit?slide=id.gec9722e163_0_282#slide=id.gec9722e163_0_282]
+- Build Log [https://docs.google.com/presentation/d/1nEofchMasy27EcYtwU0i3Pb7w4pghgpwYOgNFogjeMs/edit?usp=sharing]
 
 ## Architecture
 
