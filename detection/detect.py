@@ -3,6 +3,7 @@
 import cv2
 import numpy as np
 import onnxruntime as ort #runs my exported model
+import concurrent.futures
 import subprocess, os, csv, signal, time #launch Pi's camera tool first and wait to finish
 from datetime import datetime
 
@@ -21,6 +22,7 @@ CAPTURE_INTERVAL = 3   # seconds to wait between photos during a survey
 
 FC_SERIAL_PORT = "/dev/serial0"  # spare FC UART wired to the Pi's GPIO14/15, set to "MSP" in Betaflight
 FC_BAUDRATE = 115200              # must match whatever's set for that UART in Betaflight's Ports tab
+FC_CONNECT_TIMEOUT = 8            # seconds to wait for the FC to respond before giving up on it
 
 # Runs until power is cut or the service is stopped -- no fixed duration.
 # systemd sends SIGTERM to stop a service (not SIGINT/Ctrl+C), so both need
@@ -169,11 +171,22 @@ if __name__ == "__main__":
 
     board = None
     if MSPy is not None:
+        # yamspy's connection handshake can block for a long time internally
+        # if the FC never responds (not wired, wrong UART, etc). Running it
+        # in a background thread with our own timeout means a silent FC
+        # can't hang survey startup -- or a clean shutdown -- indefinitely.
+        def _connect_to_fc():
+            return MSPy(device=FC_SERIAL_PORT, loglevel="WARNING", baudrate=FC_BAUDRATE, trials=1).__enter__()
+
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         try:
-            board = MSPy(device=FC_SERIAL_PORT, loglevel="WARNING", baudrate=FC_BAUDRATE).__enter__()
+            board = executor.submit(_connect_to_fc).result(timeout=FC_CONNECT_TIMEOUT)
             print(f"Connected to FC over MSP on {FC_SERIAL_PORT}")
+        except concurrent.futures.TimeoutError:
+            print(f"No FC connection (no response within {FC_CONNECT_TIMEOUT}s) -- continuing without flight data")
         except Exception as e:
             print(f"No FC connection ({e}) -- continuing without flight data")
+        executor.shutdown(wait=False)  # don't block on a thread that may still be stuck internally
     else:
         print("yamspy not installed -- continuing without flight data")
 
