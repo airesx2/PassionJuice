@@ -37,7 +37,9 @@ NAV = """
 
 DEX_DIR = "dex"
 LOG_FILE = os.path.join(DEX_DIR, "log.csv")
-MIN_DISPLAY_CONFIDENCE = 0.3  # hide low-confidence false positives from the main view
+MIN_DISPLAY_CONFIDENCE = 0.6  # only feature clear, high-confidence catches on the Tree Dex --
+                               # the map isn't affected by this at all, it uses every row in
+                               # log.csv regardless of confidence, so spatial data stays complete
 
 def confidence_of(c):
     try:
