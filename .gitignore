@@ -8,6 +8,8 @@ venv/
 node_modules/
 dex/crops/
 dex/log.csv
+dex/log.csv.bak
+dex.old-sample-backup/
 *.onnx
 flight-logs/
 .DS_Store
