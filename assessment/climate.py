@@ -65,7 +65,7 @@ def get_site_climate_profile(zip_code):
 
 def get_zip_from_latlon(lat, lon):
     resp = requests.get("https://nominatim.openstreetmap.org/reverse",params={"format":"json","lat":lat,"lon":lon},
-                        headers={"User-Agent": "tree-dex-capstone"}, timeout=10)
+                        headers={"User-Agent": "PassionJuice/1.0 (https://github.com/airesx2/PassionJuice)"}, timeout=10)
     resp.raise_for_status()
     address = resp.json().get("address", {}) #nest all location details
     zip_code = address.get("postcode") #specifically zip 
