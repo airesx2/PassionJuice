@@ -13,3 +13,6 @@ dex.old-sample-backup/
 *.onnx
 flight-logs/
 .DS_Store
+# OS junk
+desktop.ini
+Thumbs.db
