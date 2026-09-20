@@ -1,8 +1,9 @@
 [Unit]
-Description=Tree Dex detection survey
+Description=PassionJuice detection survey
 
 [Service]
 Type=simple
+# Change User and the two paths below to match your Pi's username.
 User=mrdrone
 WorkingDirectory=/home/mrdrone/PassionJuice
 ExecStart=/usr/bin/python3 -u /home/mrdrone/PassionJuice/detection/detect.py
