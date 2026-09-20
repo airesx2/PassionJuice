@@ -145,7 +145,7 @@ def index():
     <!DOCTYPE html>
     <html>
     <head>
-        <title> ݁ ˖𓂃.𖠰 Tree Dex</title>
+        <title> ݁ ˖𓂃.𖠰 PassionJuice &middot; Tree Dex</title>
         <style>
             * {{ box-sizing: border-box; }}
             body {{
@@ -361,7 +361,7 @@ def planting():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Tree Dex &middot; Planting Recs</title>
+        <title>PassionJuice &middot; Planting Recs</title>
         <style>
             * {{ box-sizing: border-box; }}
             body {{
@@ -425,7 +425,7 @@ def site_map():
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Tree Dex &middot; Map</title>
+        <title>PassionJuice &middot; Map</title>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <style>
@@ -645,7 +645,7 @@ def render_stub_page(title, emoji, badge, badge_color, desc, extra_html=""):
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Tree Dex &middot; {title}</title>
+        <title>PassionJuice &middot; {title}</title>
         <style>
             * {{ box-sizing: border-box; }}
             body {{
@@ -747,5 +747,6 @@ def locust_risk():
     )
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # Debug mode is off by default. Run with FLASK_DEBUG=1 to turn it on locally.
+    app.run(debug=os.environ.get("FLASK_DEBUG") == "1", port=5000)
     
