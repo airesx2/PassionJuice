@@ -8,9 +8,6 @@ same data feeds a more serious feature: climate-aware planting recommendations
 built from real climate data and Gemini, shown on a live map of where the trees
 were found.
 
-The idea is a citizen-science tool in the spirit of iNaturalist and eBird: find
-where canopy is missing, then suggest what would actually survive there.
-
 ## Impact/Goal: Climate Change
 
 PassionJuice exists to make biodiversity and canopy data collection accessible enough that ordinary people actually want to contribute to it — a "fun front-end, real impact back-end" approach. Every drone-caught, GPS-tagged tree feeds into a pipeline that pulls real climate data for that location (USDA hardiness zone, rainfall and temperature normals) and turns it into a climate-aware planting recommendation via Gemini, weighted toward climate resilience, carbon capture, and native or endangered species. The goal is to close the gap between "where is canopy missing" and "what should actually be planted there" — a citizen-science tool, in the spirit of iNaturalist and eBird, that scales climate-smart reforestation decisions down to the neighborhood level.
