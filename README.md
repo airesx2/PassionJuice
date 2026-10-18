@@ -154,15 +154,6 @@ scp -r <pi-user>@<pi-hostname>.local:~/PassionJuice/dex ./
 - [ ] Tree health monitoring (needs repeated flights over the same site)
 - [ ] Pest and outbreak risk flagging (exploratory; needs rainfall-anomaly, soil-moisture, NDVI, and historical-observation datasets, not visual bug-spotting)
 
-## Known issues
-
-- During the first test flight, GPS telemetry stopped partway through the session
-  while the camera and detection kept working. The cause is not confirmed. The
-  leading suspect is a marginal solder joint that fails under vibration.
-- That flight was mostly hovering, so the map data so far is sparse and clustered.
-  The map groups nearby catches into zones (25 m by default) so overlapping pins
-  don't hide the density.
-
 ## Data notes
 
 `dex/log.csv`, the cropped images in `dex/crops/`, and the trained model
