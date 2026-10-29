@@ -150,7 +150,7 @@ scp -r <pi-user>@<pi-hostname>.local:~/PassionJuice/dex ./
 - [x] Tree Dex front end with saved AI nicknames and facts
 - [x] Climate-smart planting recommendations (ZIP based)
 - [x] Live GPS-tagged catches read from the FC over MSP. `/map` shows real data as soon as it exists, and `geotag.py` remains as a fallback for older logs.
-- [ ] Urban canopy and heat-gap mapping (per-zone clustering of GPS-tagged catches)
+- [x] Urban canopy and heat-gap mapping (per-zone clustering of GPS-tagged catches)
 - [ ] Tree health monitoring (needs repeated flights over the same site)
 - [ ] Pest and outbreak risk flagging (exploratory; needs rainfall-anomaly, soil-moisture, NDVI, and historical-observation datasets, not visual bug-spotting)
 
