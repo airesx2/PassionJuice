@@ -1,6 +1,6 @@
 # PassionJuice: Aerial Land Assessment for Climate-Smart Planting
 
-PassionJuice is a self-built 5" quadcopter that surveys land from above and
+Project PassionJuice [named Mr. Drone] is a self-built 5" quadcopter that surveys land from above and
 detects trees in real time. Each detection is tagged with its GPS location from
 the flight controller and "caught" into the Tree Dex, a Pokédex-style web
 collection where every tree gets an AI-generated nickname and a short fact. The
