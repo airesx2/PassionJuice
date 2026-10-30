@@ -3,6 +3,7 @@
 
 from flask import Flask, send_from_directory, request,jsonify
 import csv
+import cv2
 import html
 import json
 import markdown
@@ -37,15 +38,77 @@ NAV = """
 
 DEX_DIR = "dex"
 LOG_FILE = os.path.join(DEX_DIR, "log.csv")
-MIN_DISPLAY_CONFIDENCE = 0.6  # only feature clear, high-confidence catches on the Tree Dex --
+MIN_DISPLAY_CONFIDENCE = 0.9 # only feature clear, high-confidence catches on the Tree Dex --
                                # the map isn't affected by this at all, it uses every row in
                                # log.csv regardless of confidence, so spatial data stays complete
+
+# Tree Dex curation -- on top of the confidence gate, a catch has to pass these
+# image checks, and then only the single best catch per DEX_WINDOW_MINUTES window
+# gets featured. Best-of-window (not first-come cooldown) so a blurry early catch
+# can't block a great one taken 2 minutes later in the same window.
+DEX_WINDOW_MINUTES = 5
+MIN_CROP_SIDE = 48            # px -- tiny crops are distant blobs, not dex-worthy
+MIN_SHARPNESS = 60            # Laplacian variance -- below this the crop is motion blurred
+BRIGHTNESS_THRESHOLD = 30     # same blank-image gates as scripts/cleanup_blank_catches.py
+VARIANCE_THRESHOLD = 4
+
+_quality_cache = {}  # crop filename -> score (or None if rejected); crops never change once written
 
 def confidence_of(c):
     try:
         return float(c.get("confidence") or 0)
     except ValueError:
         return 0
+
+def quality_score(c):
+    """Score one catch for the Tree Dex, or None if it fails a hard gate.
+    Confidence is the base, scaled up for bigger and sharper crops so the
+    window winner is the one that actually looks good, not just the one
+    the model was slightly more sure about."""
+    conf = confidence_of(c)
+    if conf < MIN_DISPLAY_CONFIDENCE:
+        return None
+
+    crop_file = os.path.basename(c.get("crop_file") or "")
+    if crop_file not in _quality_cache:
+        img = cv2.imread(os.path.join(DEX_DIR, "crops", crop_file), cv2.IMREAD_GRAYSCALE)
+        score = None
+        if img is not None:
+            h, w = img.shape
+            sharpness = cv2.Laplacian(img, cv2.CV_64F).var()
+            blank = img.mean() < BRIGHTNESS_THRESHOLD or img.std() < VARIANCE_THRESHOLD
+            if min(h, w) >= MIN_CROP_SIDE and sharpness >= MIN_SHARPNESS and not blank:
+                size_factor = min(min(h, w) / 200, 1.0)        # saturates at 200px
+                sharp_factor = min(sharpness / 500, 1.0)       # saturates at 500
+                score = conf * (0.5 + 0.25 * size_factor + 0.25 * sharp_factor)
+        _quality_cache[crop_file] = score
+    return _quality_cache[crop_file]
+
+def featured_catches(catches):
+    """Pick what the Tree Dex shows: the top-scoring catch in each
+    DEX_WINDOW_MINUTES window. Catches already revealed (nicknamed) always
+    stay so a named tree never disappears. Deleting a window's winner lets
+    the runner-up from that window take its place."""
+    best = {}  # window key -> (score, catch)
+    keep = []
+    for c in catches:
+        if (c.get("nickname") or "").strip():
+            keep.append(c)
+            continue
+        score = quality_score(c)
+        if score is None:
+            continue
+        try:
+            dt = datetime.strptime(c.get("raw_timestamp", ""), "%Y%m%d_%H%M%S")
+            window = int(dt.timestamp() // (DEX_WINDOW_MINUTES * 60))
+        except ValueError:
+            window = c.get("crop_file")  # unparseable time -> judge it on its own
+        if window not in best or score > best[window][0]:
+            best[window] = (score, c)
+
+    keep += [c for _, c in best.values()]
+    order = {id(c): i for i, c in enumerate(catches)}
+    return sorted(keep, key=lambda c: order[id(c)])  # keep log.csv order on the page
 
 
 def format_timestamp(raw):
@@ -74,6 +137,7 @@ def load_catches():
         with open(LOG_FILE, newline = "") as f:
             reader = csv.DictReader(f)
             for row in reader:
+                row["raw_timestamp"] = row.get("timestamp", "")
                 row["timestamp"] = format_timestamp(row.get("timestamp", ""))
                 catches.append(row)
     return catches
@@ -111,7 +175,7 @@ def crops(filename):
 
 @app.route("/")
 def index():
-    catches = [c for c in load_catches() if confidence_of(c) >= MIN_DISPLAY_CONFIDENCE]
+    catches = featured_catches(load_catches())
     total = len(catches)
 
     cards = ""
