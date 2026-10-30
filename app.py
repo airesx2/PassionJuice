@@ -766,11 +766,11 @@ def canopy_mapping():
         emoji="&#127794;",
         badge="&#128203; Planned",
         badge_color="#f1c40f",
-        desc="Once catches are truly geotagged, cluster them into real zones "
-             "(instead of the hardcoded sample zones on the Map tab today) to "
-             "flag areas with unusually sparse tree cover -- these tend to run "
-             "hotter, which is an environmental-justice signal as much as an "
-             "ecological one.",
+        desc="Cluster real GPS-tagged catches into density zones to flag areas "
+             "with unusually sparse tree cover. These tend to run hotter, which "
+             "is an environmental-justice signal as much as an ecological one. "
+             "The zones exist today, but at park scale they're still too fine, "
+             "so tuning the clustering scale is the next step.",
     )
 
 @app.route("/health-monitoring")
