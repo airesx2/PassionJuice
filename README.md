@@ -19,7 +19,7 @@ Build log (photos, wiring, and everything that went wrong):
 
 - Frame: QAV250
 - Flight controller: SpeedyBee F405 V5
-- Motors: T-Motor V2306
+- Motors: T-Motor V2206
 - GPS: M8N (wired to the FC's UART4)
 - Companion computer: Raspberry Pi Zero 2W + Camera Module V2, powered by a UBEC
   off the main battery and connected to the FC's UART2 over MSP for live telemetry
